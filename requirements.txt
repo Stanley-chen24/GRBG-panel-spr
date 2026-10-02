@@ -1,0 +1,4 @@
+numpy        
+pillow      
+screeninfo
+opencv-python

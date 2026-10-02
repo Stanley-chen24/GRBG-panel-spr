@@ -40,31 +40,10 @@ python main_video.py  # 影片版
    │  spr_algorithm()      決定每個 sub-pixel 要亮多少
    ▼
 out_spr (H, W, 3)          只有 sub-pixel 位置有值，其餘為 0
-   │  convert_to_panel()   把值搬到面板訊號的位置
+   │  convert_to_panel()   把值搬到面板訊號的位置，請注意送入該函式的輸入為GRBG排列的訊號
    ▼
 面板訊號 (H/2, W, 3)        
 ```
-
-## ConvertToPanel() 
-
-位於 `panels/lextar_121.py`，負責把 out_spr 搬成面板訊號，並送給面板的 DDIC。
-
-輸入 out_spr 的每個 2x2 區塊，值放在固定位置 (out_spr 位置規則)：
-
-| | 偶數欄 | 奇數欄 |
-|---|---|---|
-| 偶數列 | G (值已 ÷2) | R |
-| 奇數列 | B | G (值已 ÷2) |
-
-輸出時每個 2x2 區塊併成「一列、兩個 pixel」，所以高度變一半、寬度不變 (240x240 -> 寬 240 x 高 120)：
-
-| | 左 pixel | 右 pixel |
-|---|---|---|
-| R | 區塊的 R | 同左 |
-| G | 上面那個 G ×2 | 下面那個 G ×2 |
-| B | 區塊的 B | 同左 |
-
-**記得 G 要先 ÷2 (SPR 階段) 再 ×2 (convert_to_panel)，兩者要成對**；只做其中一個，G 會減半或變兩倍。
 
 ## 檔案
 

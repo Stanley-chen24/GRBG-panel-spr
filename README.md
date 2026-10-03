@@ -53,12 +53,17 @@ main_video.py / gui_video.py  影片版：繼承圖片版，多了播放與時�
 panels/lextar_121.py          spr_algorithm()、mmse()、convert_to_panel()
 panels/downsample.py          DSD、DPD、_place_bayer()
 filters/mmse/                 MMSE 的濾波器 (.npy)
+archive/mmse_spr_demo.py      MMSE filter 推導、panel 與 virtual image 示範 (獨立程式)
 ```
 
 **MMSE 的 filter**
 
 - 有提供 3x3 / 15x15 兩種大小去選擇 (只是計算時取了中心為多少的範圍作為真正使用的 filter)。
 - 可在 `panels/lextar_121.py` 的 `_HRB_PATH` / `_HG_PATH` 替換 filter，目前使用 3x3。
+
+## MMSE filter 怎麼來的
+
+關於 MMSE SPR 整體流程可以參照 `archive/mmse_spr_demo.py` 程式。
 
 
 ## 若要更新自己的SPR演算法上去

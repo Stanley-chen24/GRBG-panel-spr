@@ -5,7 +5,7 @@
 
 用法：
     python mmse_spr_demo.py                      # 跳出視窗選圖，預設是儲存filter 15x15
-    python mmse_spr_demo.py Lenna.png --size X   # 指定圖片與 filter 大小
+    python mmse_spr_demo.py X.png --size X   # 指定圖片與 filter 大小
 
 輸出到本檔旁的 result_mmse/<影像名>/<k>x<k>/。
 """
@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 
 INPUT_SIZE = 240        
-GRID = 64               # 推導 filter 用的週期網格大小；夠大讓外圍的權重可忽略
+GRID = 64               # filter 計算時的網格大小
 _HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_ROOT = os.path.join(_HERE, "result_mmse")
 
@@ -34,7 +34,7 @@ K_G = np.array([[0., .25, 0.],
 # GRBG 位置
 OFF_R, OFF_B, OFF_GA, OFF_GB = (0, 1), (1, 0), (0, 0), (1, 1)
 
-# LSF：模擬 virtual image 用的光擴散模型 
+# LSF：模擬顯示器點亮後對應到人眼看到的 virtual image 
 LSF_SIGMA = math.sqrt(1.0 / (2.0 * math.log(2.0)))   # 0.8493218
 LSF_GAIN = np.array([4.0, 2.0, 4.0]) 
 
@@ -50,7 +50,7 @@ def _forward_operator(offsets, K):
     r = K.shape[0] // 2
     stamp = np.zeros((GRID, GRID))
     stamp[:K.shape[0], :K.shape[1]] = K
-    stamp = np.roll(stamp, (-r, -r), axis=(0, 1))       # 核中心移到 (0, 0)
+    stamp = np.roll(stamp, (-r, -r), axis=(0, 1))       
     cols = [np.roll(stamp, (2 * i + orr, 2 * j + occ), axis=(0, 1)).ravel()
             for orr, occ in offsets
             for i in range(GRID // 2) for j in range(GRID // 2)]
@@ -59,7 +59,7 @@ def _forward_operator(offsets, K):
 def derive_filter(offsets, K, k):
     """算出網格中央那個 sub-pixel 的權重，裁成 kxk 並歸一化。"""
     A = _forward_operator(offsets, K)
-    c = GRID // 4                                      # 中央站點 (第 c 列、第 c 欄)
+    c = GRID // 4                                      # central pixel index
     e = np.zeros(A.shape[1])
     e[c * (GRID // 2) + c] = 1.0
     h = (A @ np.linalg.solve(A.T @ A, e)).reshape(GRID, GRID)
@@ -69,11 +69,7 @@ def derive_filter(offsets, K, k):
     return (h / h.sum()).astype(np.float32)
 
 def compute_panel_signal(img255, hrb, hg):
-    """整張圖濾波 -> clip -> 在 GRBG 位置取值，得到每個 sub-pixel 的驅動值。
-
-    濾波在 linear 域做 (光在 linear 域相加)，filter2D 預設邊界即鏡射。
-    clip 就是論文的「無約束 + clip」：超出 [0,1] 的值直接截掉。
-    """
+    """整張圖濾波 -> clip -> 在 GRBG 位置取值，得到每個 sub-pixel 的驅動值。"""
     x = srgb_to_linear(img255 / 255.0)
     d = np.stack([cv2.filter2D(x[..., c], -1, h)
                   for c, h in ((0, hrb), (1, hg), (2, hrb))], axis=-1)

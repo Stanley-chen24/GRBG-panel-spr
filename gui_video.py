@@ -1,9 +1,3 @@
-"""影片版 GUI：繼承 gui.py 的 ImageViewer / ControlPanel，只加播放與時間軸。
-
-影像合成 (SPR -> 面板格式 -> 演算法名稱列) 全部沿用父類別，
-這裡只負責逐幀讀取、播放時鐘、暫停與跳轉。
-"""
-
 import time
 import tkinter as tk
 from tkinter import ttk
@@ -16,29 +10,24 @@ from gui import ImageViewer, ControlPanel
 
 
 class VideoViewer(ImageViewer):
-    """media 視窗：img_list / idx 沿用為影片清單 / 目前第幾支。"""
-
     def __init__(self, root):
         super().__init__(root)
         self.cap = None
         self.fps = 30.0
         self.n_frames = 0
-        self.cur = -1               # 目前顯示的幀編號
+        self.cur = -1               
         self.playing = False
-        self.dragging = False       # 拖時間軸時暫停自動前進
-        self._src = None            # 目前幀 (PIL RGB)，供切換設定時重繪
-        self._job = None            # after() 排程 id
-        self._t0 = 0.0              # 播放時鐘起點 (wall clock)
-        self._f0 = 0                # 時鐘起點對應的幀編號
+        self.dragging = False       
+        self._src = None            
+        self._job = None            
+        self._t0 = 0.0              
+        self._f0 = 0                
 
-        self.on_progress = None     # (cur, n_frames, fps)
-        self.on_play_state = None   # (playing)
+        self.on_progress = None     
+        self.on_play_state = None   
 
         root.bind("<space>", self.toggle_play)
 
-    # ------------------------------------------------------------------
-    # 載入 / 切換影片
-    # ------------------------------------------------------------------
     def load_images(self, event=None, parent=None):
         paths = filedialog.askopenfilenames(
             title="Select Videos",
@@ -70,9 +59,6 @@ class VideoViewer(ImageViewer):
         self.seek(0)
         self.set_playing(play)
 
-    # ------------------------------------------------------------------
-    # 播放控制
-    # ------------------------------------------------------------------
     def toggle_play(self, event=None):
         if self.cap:
             self.set_playing(not self.playing)
@@ -121,7 +107,6 @@ class VideoViewer(ImageViewer):
             self._job = self.root.after(30, self._tick)
             return
 
-        # 依實際經過時間決定該顯示哪一幀，跟不上就丟幀 (grab 跳過)
         target = self._f0 + int((time.perf_counter() - self._t0) * self.fps)
         if target >= self.n_frames:
             self.seek(0)            # 循環播放
@@ -136,9 +121,6 @@ class VideoViewer(ImageViewer):
                 self.seek(0)
         self._schedule()
 
-    # ------------------------------------------------------------------
-    # 顯示
-    # ------------------------------------------------------------------
     def _render(self, bgr):
         self._src = Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
         self.show_current()
@@ -188,7 +170,7 @@ class VideoControlPanel(ControlPanel):
         row_seek = ttk.Frame(left)
         row_seek.pack(fill="x", padx=10, pady=(2, 4), after=row_play)
         self._n = 0
-        self._ui = False            # True 時是程式在更新滑桿，不當成使用者拖曳
+        self._ui = False            
         self.seek_var = tk.DoubleVar(value=0)
         self.scale = ttk.Scale(row_seek, from_=0, to=1, variable=self.seek_var,
                                command=self._on_seek, takefocus=False)

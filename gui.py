@@ -4,8 +4,8 @@
     root      : 顯示視窗，將視窗移至 Panel 螢幕上
     ctrl_win  : 控制視窗與縮圖預覽
 
-影像處理管線 (panel_type == "121" 時) 委派給 panels/lextar_121.py，
-本檔案只負責：Tkinter 視窗、狀態機、跟哪個 panel 模組對應。
+影像處理管線 (panel_type == "121" 時) 給 panels/lextar_121.py
+本檔案只負責Tkinter 視窗、狀態機、跟哪個 panel 模組對應。
 """
 
 import tkinter as tk
@@ -22,28 +22,14 @@ try:
 except ImportError:          # 沒裝 screeninfo 也能跑，只是第二螢幕改用手動
     get_monitors = None
 
-
-# 各個 SPR 演算法名稱 (對應到 panels/lextar_121.py 的 spr_algorithm())
 ALGORITHMS = ["DPD", "DSD", "MMSE"]
-
-# --- SPR 演算法名稱文字 ---
-# convert_to_panel() 輸出的每一列訊號都是畫面本身的一部分 (面板靠
-# sub-pixel 排列把它感知放大成 2 倍高)，所以文字不能畫在這些既有像素
-# 「裡面」，否則會跟畫面內容疊在一起。做法是往下「新增」額外的列：
-# 原本的畫面完整貼在上面 (不裁切、不覆蓋)，文字獨立畫在下面新開的
-# 黑底區域，兩者完全不重疊。這塊新增區域對應到你面板實體上本來就
-# 比 SPR 訊號多出來的那塊暗區 (原本你貼的照片就看得到)。
 INFO_BAR_HEIGHT = 40              # 新增文字列的高度 (px)，依面板可視空間調整
 INFO_FONT_PATH = r"C:\Windows\Fonts\times.ttf"   # Times New Roman
 INFO_FONT_COLOR = "white"
-
-# 控制視窗右欄「Original image」預覽框的邊長 (px)，固定 1:1
 PREVIEW_SIZE = 540
 
 
 class ImageViewer:
-    """media 視窗：狀態 + 影像合成 + 顯示。"""
-
     def __init__(self, root):
         self.root = root
         self.img_list = []          # 載入的圖檔路徑
@@ -54,17 +40,10 @@ class ImageViewer:
         self.algo_left = ALGORITHMS[0]
         self.algo_right = ALGORITHMS[1]
         self.fullscreen = False
-        self._side_split_x = None   # side-by-side 時，左右兩張圖的分界 (由 _compose 設定)
-
-        # 反向連結：換圖後要通知控制視窗更新縮圖。
-        # main() 會把 ControlPanel.update_thumbnail 掛上來。
+        self._side_split_x = None   
         self.on_image_changed = None
-
-        self._photo = None          # 保留 PhotoImage 參考，避免被 GC 回收
-
-        # ---- widget ----
+        self._photo = None          
         self.image_label = tk.Label(root, bg="black")
-        # anchor="nw" + 不 fill：影像固定貼左上角、保持原尺寸
         self.image_label.pack(anchor="nw")
 
         root.bind("<Left>", self.prev_image)
@@ -72,16 +51,8 @@ class ImageViewer:
         root.bind("f", self.toggle_fullscreen)
         root.bind("<Escape>", self.quit_app)
 
-    # ------------------------------------------------------------------
-    # 影像處理：依 panel_type 分派給對應的 panels/ 模組
-    # ------------------------------------------------------------------
     def _to_panel_format(self, out_spr):
-        """依目前 panel_type，把 SPR 輸出轉成「該面板實際要吃的格式」。
-
-        這一步是 regular 和 121 panel 唯一分岔的地方，non-side-by-side
-        和 side-by-side 都經過這裡，確保兩種模式、兩種 panel 送出的
-        影像格式永遠一致。
-        """
+        """依目前 panel_type，把 SPR 輸出轉成「該面板實際要吃的格式」。"""
         if self.panel_type == "121":
             out_panel = lextar_121.convert_to_panel(out_spr)
         else:
@@ -90,7 +61,6 @@ class ImageViewer:
 
     def _apply_panel(self, img, algo_name):
         """影像路徑：指定的 SPR 演算法 -> 面板格式轉換。
-
         單張顯示與 side-by-side 共用，差別只在帶進來的 algo_name。
         """
         arr = np.asarray(img, dtype=np.float32)
@@ -112,28 +82,16 @@ class ImageViewer:
                            "black")
         canvas.paste(left, (0, 0))
         canvas.paste(right, (left.width, 0))
-        self._side_split_x = left.width   # 記住左右兩張圖的分界，label 要用
+        self._side_split_x = left.width   
         return canvas
 
     def _draw_algo_label(self, composite):
-        """在 composite 影像「下方新增」一條黑底白字的列，顯示 SPR 演算法
-        名稱，不覆蓋、不裁切原本的畫面內容。
-
-        composite 是 convert_to_panel() 的輸出，也就是真正要送給面板的
-        最終訊號。這裡回傳的影像會比 composite 高 INFO_BAR_HEIGHT，
-        多出來的部分才是專門給文字用的區域，跟畫面內容完全分開。
-
-        side-by-side 時，左右兩個演算法名稱要分別置中在「自己那張圖」
-        的正下方 (不是整條 bar 置中)，所以用 _side_split_x 把 bar
-        切成兩半，各自獨立置中。
-        """
         if self.panel_type != "121":
             return composite
 
         w, h = composite.size
         out = Image.new("RGB", (w, h + INFO_BAR_HEIGHT), "black")
-        out.paste(composite, (0, 0))     # 原本的畫面完整貼上，不裁切
-        draw = ImageDraw.Draw(out)
+        out.paste(composite, (0, 0))    
 
         if self.side_by_side:
             split = self._side_split_x or (w // 2)
@@ -144,13 +102,7 @@ class ImageViewer:
         return out
 
     def _draw_centered_text(self, draw, text, x0, x1, bar_top):
-        """把 text 置中畫在 [x0, x1) 這個寬度範圍、bar_top 開始的新增列裡。
-
-        字體大小依「這個範圍」自動抓比例、太寬會自動縮小——side-by-side
-        時每半邊寬度只有整條 bar 的一半，所以要各自量各自的寬度，不能
-        共用整條 bar 的寬度去置中，否則兩個名稱會被拉去跟整條 bar 的
-        中心對齊，而不是各自那張圖的中心。
-        """
+        """畫SPR演算法名稱文字並置中擺放"""
         if not text:
             return
         box_w = x1 - x0
@@ -169,9 +121,6 @@ class ImageViewer:
         y = bar_top + (INFO_BAR_HEIGHT - text_h) // 2 - bbox[1]
         draw.text((x, y), text, font=font, fill=INFO_FONT_COLOR)
 
-    # ------------------------------------------------------------------
-    # 顯示
-    # ------------------------------------------------------------------
     def show_current(self):
         """重畫：五種會改變畫面的操作，最後都呼叫這個。"""
         if not self.img_list:
@@ -186,9 +135,7 @@ class ImageViewer:
         if self.on_image_changed is not None:
             self.on_image_changed(src)
 
-    # ------------------------------------------------------------------
-    # 使用者操作
-    # ------------------------------------------------------------------
+    # user operation: load / next / prev / quit / toggle_fullscreen
     def load_images(self, event=None, parent=None):
         paths = filedialog.askopenfilenames(
             title="Select Images",
@@ -217,12 +164,10 @@ class ImageViewer:
         self.root.attributes("-fullscreen", self.fullscreen)
 
     def exit_fullscreen(self, event=None):
-        """只退出、不進入：已經是一般視窗時不做事。"""
         if self.root.overrideredirect() or self.fullscreen:
             self.toggle_fullscreen()
 
     def move_to_second_screen(self, event=None):
-        """把視窗移到第二螢幕，並全螢幕。"""
         monitors = get_monitors() if get_monitors else []
         externals = [m for m in monitors if not m.is_primary]
 
@@ -249,7 +194,6 @@ class ImageViewer:
         self.fullscreen = True
 
     def _windowed(self):
-        """解除無邊框佔滿，回到一般視窗"""
         self.root.overrideredirect(False)
         self.root.attributes("-fullscreen", False)
         self.root.geometry("900x600+100+100")
@@ -264,13 +208,10 @@ class ControlPanel:
         self.root = root
         self.viewer = viewer
         self.root.title("Controls")
-
-        self._thumb_photo = None    # 保留縮圖 PhotoImage 參考
-
+        self._thumb_photo = None    
         self._build_widgets()
         self._bind_keys()
 
-    # ------------------------------------------------------------------
     def _build_widgets(self):
         self.root.columnconfigure(0, weight=0)
         self.root.columnconfigure(1, weight=1)
@@ -313,28 +254,21 @@ class ControlPanel:
                             command=self._on_panel_type).pack(side="left")
 
         # --- SPR Algorithm buttons (非 side-by-side 時，選單張顯示要用哪種
-        #     演算法；只有 Lextar panel 才有得選，regular 面板本身自帶 SPR，
-        #     交給 _update_sbs_visibility() 依 panel type / side-by-side
-        #     狀態決定要不要顯示) ---
+        #     演算法；只有 Lextar panel 才有得選，因為 regular 設定是面板本身自帶 SPR，
         self.row_algo_single = ttk.Frame(left)
         self.algo_single_var = tk.StringVar(value=self.viewer.algo_single)
         for name in ALGORITHMS:
             ttk.Radiobutton(self.row_algo_single, text=name, value=name,
                             variable=self.algo_single_var,
                             command=self._on_algo_single_change).pack(side="left")
-
-        # --- Side-by-side (只有 Lextar panel 才需要比較不同 SPR 演算法，
-        #     regular 面板本身沒有 SPR 可比較，所以這排整個先不 pack，
-        #     交給 _update_sbs_visibility() 依 panel type 決定要不要顯示) ---
+        # Side-by-side
         self.row_sbs = ttk.Frame(left)
         self.sbs_var = tk.BooleanVar(value=self.viewer.side_by_side)
         ttk.Checkbutton(self.row_sbs, text="Side-by-side compare",
                         variable=self.sbs_var,
                         command=self._on_sbs_toggle).pack(side="left")
-
-        # --- Algorithm Selection (side-by-side 開啟時才顯示，兩行) ---
+        # Algorithm Selection
         self.row_algo = ttk.Frame(left)
-
         line_left = ttk.Frame(self.row_algo)
         line_left.pack(fill="x", pady=(0, 2))
         ttk.Label(line_left, text="Left ", width=6).pack(side="left")
@@ -359,10 +293,7 @@ class ControlPanel:
         self.btn_quit.pack(anchor="w", padx=10, pady=(12, 10))
         self._update_sbs_visibility()
 
-        # ============ 右欄：original image ============
         ttk.Label(right, text="Original image").pack(anchor="w")
-        # 固定 1:1 的預覽框。Frame 的 width/height 一定是 px，
-        # pack_propagate(False) 讓它不被內部圖片撐大 -> 永遠是正方形。
         box = tk.Frame(right, width=PREVIEW_SIZE, height=PREVIEW_SIZE, bg="black")
         box.pack(pady=(2, 0))
         box.pack_propagate(False)
@@ -375,18 +306,14 @@ class ControlPanel:
         self.root.bind("f", self.viewer.toggle_fullscreen)
         self.root.bind("<Escape>", self.viewer.quit_app)
 
-    # ------------------------------------------------------------------
-    # callback：改狀態 -> 重畫
-    # ------------------------------------------------------------------
+    # Callbacks for GUI events
     def _on_panel_type(self):
         self.viewer.panel_type = self.panel_type_var.get()
         self._update_sbs_visibility()
         self.viewer.show_current()
 
     def _update_sbs_visibility(self):
-        """只有 Lextar (121) panel 才需要 side-by-side 比較不同 SPR 演算法；
-        regular panel 沒有 SPR 可比較，切回去時把開關整排藏起來，並強制
-        關掉 side-by-side 狀態，避免殘留在開啟狀態卻看不到選單。"""
+        """side-by-side 時隱藏SPR選擇按鈕"""
         if self.viewer.panel_type == "121":
             self.row_sbs.pack(fill="x", padx=10, pady=(6, 0), before=self.btn_quit)
         else:
@@ -397,7 +324,6 @@ class ControlPanel:
         self._update_algo_single_visibility()
 
     def _update_algo_single_visibility(self):
-        """單張顯示的演算法按鈕：只有 Lextar panel 且非 side-by-side 時顯示。"""
         if self.viewer.panel_type == "121" and not self.viewer.side_by_side:
             self.row_algo_single.pack(fill="x", padx=10, pady=(6, 0),
                                       before=self.row_sbs)
@@ -407,7 +333,6 @@ class ControlPanel:
     def _on_sbs_toggle(self):
         self.viewer.side_by_side = self.sbs_var.get()
         if self.viewer.side_by_side:
-            # 插在 Quit 按鈕之前
             self.row_algo.pack(fill="x", padx=10, pady=(0, 4),
                                before=self.btn_quit)
         else:
@@ -425,7 +350,6 @@ class ControlPanel:
         self.viewer.show_current()
 
     def update_thumbnail(self, pil_image):
-        # 等比例放大到蓋滿正方形預覽框，多出來的部分置中裁掉
         thumb = ImageOps.fit(pil_image, (PREVIEW_SIZE, PREVIEW_SIZE), Image.LANCZOS)
         self._thumb_photo = ImageTk.PhotoImage(thumb)
         self.preview_label.config(image=self._thumb_photo)

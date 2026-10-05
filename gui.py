@@ -91,7 +91,8 @@ class ImageViewer:
 
         w, h = composite.size
         out = Image.new("RGB", (w, h + INFO_BAR_HEIGHT), "black")
-        out.paste(composite, (0, 0))    
+        out.paste(composite, (0, 0))
+        draw = ImageDraw.Draw(out)
 
         if self.side_by_side:
             split = self._side_split_x or (w // 2)
